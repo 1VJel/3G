@@ -110,23 +110,32 @@ async function addItem(type) {
     const desc = document.getElementById(prefix + "Desc").value.trim();
     const date = document.getElementById(prefix + "Date").value;
 
-    if (!subject || !desc || !date) return alert("Vyplň všechna pole!");
-
-    const { data, error } = await supabase
-        .from(type + "_pending")
-        .insert([{ subject, desc, date, up: 0, down: 0 }]);
-
-    if (error) {
-        console.error("Chyba při přidávání:", error);
-        alert("Nepodařilo se přidat položku. Zkontroluj konzoli.");
+    if (!subject || !desc || !date) {
+        alert("Vyplň všechna pole!");
         return;
     }
 
-    document.getElementById(prefix + "Subject").value = "";
-    document.getElementById(prefix + "Desc").value = "";
-    document.getElementById(prefix + "Date").value = "";
+    try {
+        const { data, error } = await supabase
+            .from(type + "_pending")
+            .insert([{ subject, desc, date, up: 0, down: 0 }]);
 
-    fetchData(); // aktualizace seznamu
+        console.log("Supabase insert result:", data, error);
+
+        if (error) {
+            alert("Chyba při přidávání položky, zkontroluj konzoli.");
+            return;
+        }
+
+        // vymazání polí po úspěšném insertu
+        document.getElementById(prefix + "Subject").value = "";
+        document.getElementById(prefix + "Desc").value = "";
+        document.getElementById(prefix + "Date").value = "";
+
+        fetchData(); // aktualizace seznamu
+    } catch (err) {
+        console.error("Chyba při volání Supabase:", err);
+    }
 }
 
     async function vote(type, id, isUpvote) {
