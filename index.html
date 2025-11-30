@@ -214,6 +214,11 @@ async function addItem(type) {
 
     fetchData();
 
+    // Přidání listenerů k tlačítkům
+    document.getElementById("btnTask").addEventListener("click", () => addItem('task'));
+    document.getElementById("btnTest").addEventListener("click", () => addItem('test'));
+
+    
     // Realtime subscribes pro live update
     supabase.from('tasks').on('INSERT', fetchData).subscribe();
     supabase.from('tasks_pending').on('INSERT', fetchData).subscribe();
@@ -224,7 +229,7 @@ async function addItem(type) {
     supabase.from('tests_pending').on('INSERT', fetchData).subscribe();
     supabase.from('tests_pending').on('UPDATE', fetchData).subscribe();
     supabase.from('tests_pending').on('DELETE', fetchData).subscribe();
-
+    
 </script>
 <div class="column">
     <h2>Domácí úkoly</h2>
@@ -234,7 +239,7 @@ async function addItem(type) {
     <input id="taskSubject" placeholder="Předmět (1–2 písmena)">
     <input id="taskDesc" placeholder="Popis úkolu">
     <input id="taskDate" type="date">
-    <button onclick="addItem('task')">Odeslat</button>
+    <button id="btnTask">Odeslat</button>
 
     <h3>Nepotvrzené návrhy</h3>
     <div id="tasksPending"></div>
@@ -248,7 +253,7 @@ async function addItem(type) {
     <input id="testSubject" placeholder="Předmět (1–2 písmena)">
     <input id="testDesc" placeholder="Popis testu">
     <input id="testDate" type="date">
-    <button onclick="addItem('test')">Odeslat</button>
+    <button id="btnTest">Odeslat</button>
 
     <h3>Nepotvrzené návrhy</h3>
     <div id="testsPending"></div>
