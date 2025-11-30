@@ -123,47 +123,33 @@
     <div id="testsPending"></div>
 </div>
 
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+<script>
+    // Vlož sem URL a public anon key svého Supabase projektu
+    const supabaseUrl = 'https://ihzhwcuxheclfomcwclr.supabase.co'
+    const supabaseKey = process.env.SUPABASE_KEY
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-<!-- Firebase -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+    let pendingData = { task: [], test: [] };
 
-    // TODO: vlož svůj Firebase config !!!
-    const firebaseConfig = {
-        apiKey: "YOUR_KEY",
-        authDomain: "YOUR_DOMAIN",
-        projectId: "YOUR_PROJECT",
-        storageBucket: "YOUR_BUCKET",
-        messagingSenderId: "YOUR_ID",
-        appId: "YOUR_APP_ID"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // ------------------------ Přidávání položek -------------------------
     async function addItem(type) {
         const prefix = type === "task" ? "task" : "test";
-
         const subject = document.getElementById(prefix + "Subject").value.trim();
         const desc = document.getElementById(prefix + "Desc").value.trim();
         const date = document.getElementById(prefix + "Date").value;
 
         if (!subject || !desc || !date) return alert("Vyplň všechna pole!");
 
-        await addDoc(collection(db, type + "sPending"), {
-            subject, desc, date,
-            up: 0,
-            down: 0
-        });
+        await supabase
+            .from(type + "_pending")
+            .insert([{ subject, desc, date, up:0, down:0 }]);
 
         document.getElementById(prefix + "Subject").value = "";
         document.getElementById(prefix + "Desc").value = "";
         document.getElementById(prefix + "Date").value = "";
     }
 
-    // ------------------------ Hlasování -------------------------
     async function vote(type, id, isUpvote) {
         const voteKey = type + "_" + id;
         if (localStorage.getItem(voteKey)) {
@@ -171,45 +157,42 @@
             return;
         }
 
-        const ref = doc(db, type + "sPending", id);
         const item = pendingData[type].find(x => x.id === id);
         if (!item) return;
 
         const newUp = item.up + (isUpvote ? 1 : 0);
         const newDown = item.down + (!isUpvote ? 1 : 0);
 
-        await updateDoc(ref, { up: newUp, down: newDown });
+        await supabase
+            .from(type + "_pending")
+            .update({ up: newUp, down: newDown })
+            .eq('id', id);
 
         localStorage.setItem(voteKey, "1");
 
         if (newUp - newDown >= 2) {
-            await addDoc(collection(db, type + "s"), {
-                subject: item.subject,
-                desc: item.desc,
-                date: item.date
-            });
-            await deleteDoc(ref);
+            // Přesun do potvrzené tabulky
+            await supabase
+                .from(type + "s")
+                .insert([{ subject: item.subject, desc: item.desc, date: item.date }]);
+            await supabase
+                .from(type + "_pending")
+                .delete()
+                .eq('id', id);
         }
     }
 
-    // ------------------------ Živý update -------------------------
-    let pendingData = { task: [], test: [] };
-
-    function renderItems(type, verified, targetId) {
+    function renderItems(type, data, targetId) {
         const list = document.getElementById(targetId);
         list.innerHTML = "";
-
-        verified.sort((a,b) => a.date.localeCompare(b.date));
-
-        verified.forEach(item => {
+        data.sort((a,b) => a.date.localeCompare(b.date));
+        data.forEach(item => {
             const div = document.createElement("div");
             div.className = "item";
-            div.innerHTML = `
-                <div>
-                    <b>${item.subject}</b> – ${item.desc}<br>
-                    <small>${item.date}</small>
-                </div>
-            `;
+            div.innerHTML = `<div>
+                                <b>${item.subject}</b> – ${item.desc}<br>
+                                <small>${item.date}</small>
+                             </div>`;
             list.appendChild(div);
         });
     }
@@ -217,49 +200,52 @@
     function renderPending(type, data, targetId) {
         const list = document.getElementById(targetId);
         list.innerHTML = "";
-
         pendingData[type] = data;
-
         data.forEach(item => {
             const div = document.createElement("div");
             div.className = "item";
-            div.innerHTML = `
-                <div>
-                    <b>${item.subject}</b> – ${item.desc}<br>
-                    <small>${item.date}</small>
-                </div>
-                <div class="vote-box">
-                    <div class="vote-btn like" onclick="vote('${type}', '${item.id}', true)">👍</div>
-                    <div class="vote-btn dislike" onclick="vote('${type}', '${item.id}', false)">👎</div>
-                </div>
-            `;
+            div.innerHTML = `<div>
+                                <b>${item.subject}</b> – ${item.desc}<br>
+                                <small>${item.date}</small>
+                             </div>
+                             <div class="vote-box">
+                                <div class="vote-btn like" onclick="vote('${type}','${item.id}',true)">👍</div>
+                                <div class="vote-btn dislike" onclick="vote('${type}','${item.id}',false)">👎</div>
+                             </div>`;
             list.appendChild(div);
         });
     }
 
-    // Domácí úkoly
-    onSnapshot(collection(db, "tasks"), snap => {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderItems("task", data, "tasks");
-    });
+    // Funkce pro načtení dat
+    async function fetchData() {
+        // Domácí úkoly
+        let { data: tasksData } = await supabase.from('tasks').select('*');
+        renderItems('task', tasksData || [], 'tasks');
 
-    onSnapshot(collection(db, "tasksPending"), snap => {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderPending("task", data, "tasksPending");
-    });
+        let { data: tasksPendingData } = await supabase.from('tasks_pending').select('*');
+        renderPending('task', tasksPendingData || [], 'tasksPending');
 
-    // Testy
-    onSnapshot(collection(db, "tests"), snap => {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderItems("test", data, "tests");
-    });
+        // Testy
+        let { data: testsData } = await supabase.from('tests').select('*');
+        renderItems('test', testsData || [], 'tests');
 
-    onSnapshot(collection(db, "testsPending"), snap => {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderPending("test", data, "testsPending");
-    });
+        let { data: testsPendingData } = await supabase.from('tests_pending').select('*');
+        renderPending('test', testsPendingData || [], 'testsPending');
+    }
+
+    fetchData();
+
+    // Realtime subscribes pro live update
+    supabase.from('tasks').on('INSERT', fetchData).subscribe();
+    supabase.from('tasks_pending').on('INSERT', fetchData).subscribe();
+    supabase.from('tasks_pending').on('UPDATE', fetchData).subscribe();
+    supabase.from('tasks_pending').on('DELETE', fetchData).subscribe();
+
+    supabase.from('tests').on('INSERT', fetchData).subscribe();
+    supabase.from('tests_pending').on('INSERT', fetchData).subscribe();
+    supabase.from('tests_pending').on('UPDATE', fetchData).subscribe();
+    supabase.from('tests_pending').on('DELETE', fetchData).subscribe();
 
 </script>
-
 </body>
 </html>
