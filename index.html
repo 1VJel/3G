@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Úkoly & Testy</title>
+<style>
+    body {
+        margin: 0;
+        background: #121212;
+        color: white;
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: space-between;
+        padding: 20px;
+    }
+
+    .column {
+        width: 48%;
+        background: #1e1e1e;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 0 10px #0008;
+    }
+
+    h2 {
+        margin-top: 0;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+    }
+
+    input, textarea, select {
+        width: 100%;
+        padding: 10px;
+        margin: 8px 0;
+        border-radius: 10px;
+        background: #2c2c2c;
+        color: white;
+        border: none;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        background: #00aaff;
+        color: white;
+        border-radius: 20px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #0095dd;
+    }
+
+    .item {
+        background: #252525;
+        padding: 12px;
+        border-radius: 12px;
+        margin: 10px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .vote-box {
+        display: flex;
+        gap: 10px;
+    }
+
+    .vote-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        opacity: 0.6;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 18px;
+        user-select: none;
+    }
+
+    .vote-btn.like {
+        background: #00ff0030;
+    }
+    .vote-btn.dislike {
+        background: #ff000030;
+    }
+
+    .vote-btn:hover {
+        opacity: 1;
+    }
+</style>
+</head>
+<body>
+
+<div class="column">
+    <h2>Domácí úkoly</h2>
+    <div id="tasks"></div>
+
+    <h3>Přidat úkol</h3>
+    <input id="taskSubject" placeholder="Předmět (1–2 písmena)">
+    <input id="taskDesc" placeholder="Popis úkolu">
+    <input id="taskDate" type="date">
+    <button onclick="addItem('task')">Odeslat</button>
+
+    <h3>Nepotvrzené návrhy</h3>
+    <div id="tasksPending"></div>
+</div>
+
+<div class="column">
+    <h2>Testy</h2>
+    <div id="tests"></div>
+
+    <h3>Přidat test</h3>
+    <input id="testSubject" placeholder="Předmět (1–2 písmena)">
+    <input id="testDesc" placeholder="Popis testu">
+    <input id="testDate" type="date">
+    <button onclick="addItem('test')">Odeslat</button>
+
+    <h3>Nepotvrzené návrhy</h3>
+    <div id="testsPending"></div>
+</div>
+
+
+<!-- Firebase -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+    // TODO: vlož svůj Firebase config !!!
+    const firebaseConfig = {
+        apiKey: "YOUR_KEY",
+        authDomain: "YOUR_DOMAIN",
+        projectId: "YOUR_PROJECT",
+        storageBucket: "YOUR_BUCKET",
+        messagingSenderId: "YOUR_ID",
+        appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ------------------------ Přidávání položek -------------------------
+    async function addItem(type) {
+        const prefix = type === "task" ? "task" : "test";
+
+        const subject = document.getElementById(prefix + "Subject").value.trim();
+        const desc = document.getElementById(prefix + "Desc").value.trim();
+        const date = document.getElementById(prefix + "Date").value;
+
+        if (!subject || !desc || !date) return alert("Vyplň všechna pole!");
+
+        await addDoc(collection(db, type + "sPending"), {
+            subject, desc, date,
+            up: 0,
+            down: 0
+        });
+
+        document.getElementById(prefix + "Subject").value = "";
+        document.getElementById(prefix + "Desc").value = "";
+        document.getElementById(prefix + "Date").value = "";
+    }
+
+    // ------------------------ Hlasování -------------------------
+    async function vote(type, id, isUpvote) {
+        const voteKey = type + "_" + id;
+        if (localStorage.getItem(voteKey)) {
+            alert("Už jsi hlasoval.");
+            return;
+        }
+
+        const ref = doc(db, type + "sPending", id);
+        const item = pendingData[type].find(x => x.id === id);
+        if (!item) return;
+
+        const newUp = item.up + (isUpvote ? 1 : 0);
+        const newDown = item.down + (!isUpvote ? 1 : 0);
+
+        await updateDoc(ref, { up: newUp, down: newDown });
+
+        localStorage.setItem(voteKey, "1");
+
+        if (newUp - newDown >= 2) {
+            await addDoc(collection(db, type + "s"), {
+                subject: item.subject,
+                desc: item.desc,
+                date: item.date
+            });
+            await deleteDoc(ref);
+        }
+    }
+
+    // ------------------------ Živý update -------------------------
+    let pendingData = { task: [], test: [] };
+
+    function renderItems(type, verified, targetId) {
+        const list = document.getElementById(targetId);
+        list.innerHTML = "";
+
+        verified.sort((a,b) => a.date.localeCompare(b.date));
+
+        verified.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "item";
+            div.innerHTML = `
+                <div>
+                    <b>${item.subject}</b> – ${item.desc}<br>
+                    <small>${item.date}</small>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    function renderPending(type, data, targetId) {
+        const list = document.getElementById(targetId);
+        list.innerHTML = "";
+
+        pendingData[type] = data;
+
+        data.forEach(item => {
+            const div = document.createElement("div");
+            div.className = "item";
+            div.innerHTML = `
+                <div>
+                    <b>${item.subject}</b> – ${item.desc}<br>
+                    <small>${item.date}</small>
+                </div>
+                <div class="vote-box">
+                    <div class="vote-btn like" onclick="vote('${type}', '${item.id}', true)">👍</div>
+                    <div class="vote-btn dislike" onclick="vote('${type}', '${item.id}', false)">👎</div>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    // Domácí úkoly
+    onSnapshot(collection(db, "tasks"), snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderItems("task", data, "tasks");
+    });
+
+    onSnapshot(collection(db, "tasksPending"), snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderPending("task", data, "tasksPending");
+    });
+
+    // Testy
+    onSnapshot(collection(db, "tests"), snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderItems("test", data, "tests");
+    });
+
+    onSnapshot(collection(db, "testsPending"), snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderPending("test", data, "testsPending");
+    });
+
+</script>
+
+</body>
+</html>
