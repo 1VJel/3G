@@ -4,242 +4,66 @@
 <meta charset="UTF-8">
 <title>Úkoly & Testy</title>
 <style>
-    body {
-        margin: 0;
-        background: #121212;
-        color: white;
-        font-family: Arial, sans-serif;
-        display: flex;
-        justify-content: space-between;
-        padding: 20px;
-    }
-
-    .column {
-        width: 48%;
-        background: #1e1e1e;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 0 10px #0008;
-    }
-
-    h2 {
-        margin-top: 0;
-        border-bottom: 2px solid #333;
-        padding-bottom: 10px;
-    }
-
-    input, textarea, select {
-        width: 100%;
-        padding: 10px;
-        margin: 8px 0;
-        border-radius: 10px;
-        background: #2c2c2c;
-        color: white;
-        border: none;
-    }
-
-    button {
-        width: 100%;
-        padding: 12px;
-        border: none;
-        background: #00aaff;
-        color: white;
-        border-radius: 20px;
-        font-size: 16px;
-        cursor: pointer;
-    }
-
-    button:hover {
-        background: #0095dd;
-    }
-
-    .item {
-        background: #252525;
-        padding: 12px;
-        border-radius: 12px;
-        margin: 10px 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .vote-box {
-        display: flex;
-        gap: 10px;
-    }
-
-    .vote-btn {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        cursor: pointer;
-        opacity: 0.6;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 18px;
-        user-select: none;
-    }
-
-    .vote-btn.like {
-        background: #00ff0030;
-    }
-    .vote-btn.dislike {
-        background: #ff000030;
-    }
-
-    .vote-btn:hover {
-        opacity: 1;
-    }
+body {
+    margin: 0;
+    background: #121212;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: space-between;
+    padding: 20px;
+}
+.column {
+    width: 48%;
+    background: #1e1e1e;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 0 10px #0008;
+}
+h2 { margin-top:0; border-bottom:2px solid #333; padding-bottom:10px; }
+input, textarea, select {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 10px;
+    background: #2c2c2c;
+    color: white;
+    border: none;
+}
+button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    background: #00aaff;
+    color: white;
+    border-radius: 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+button:hover { background: #0095dd; }
+.item {
+    background: #252525;
+    padding: 12px;
+    border-radius: 12px;
+    margin: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.vote-box { display:flex; gap:10px; }
+.vote-btn {
+    width:32px; height:32px; border-radius:50%;
+    cursor:pointer; opacity:0.6;
+    display:flex; justify-content:center; align-items:center;
+    font-size:18px; user-select:none;
+}
+.vote-btn.like { background:#00ff0030; }
+.vote-btn.dislike { background:#ff000030; }
+.vote-btn:hover { opacity:1; }
 </style>
 </head>
 <body>
-<!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-<script>
-    // Vlož sem URL a public anon key svého Supabase projektu
-    const supabaseUrl = 'https://ihzhwcuxheclfomcwclr.supabase.co'
-    const supabaseKey = process.env.SUPABASE_KEY
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    let pendingData = { task: [], test: [] };
-
-async function addItem(type) {
-    const prefix = type === "task" ? "task" : "test";
-    const subject = document.getElementById(prefix + "Subject").value.trim();
-    const desc = document.getElementById(prefix + "Desc").value.trim();
-    const date = document.getElementById(prefix + "Date").value;
-
-    if (!subject || !desc || !date) {
-        alert("Vyplň všechna pole!");
-        return;
-    }
-
-    try {
-        const { data, error } = await supabase
-            .from(type + "_pending")
-            .insert([{ subject, desc, date, up: 0, down: 0 }]);
-
-        console.log("Supabase insert result:", data, error);
-
-        if (error) {
-            alert("Chyba při přidávání položky, zkontroluj konzoli.");
-            return;
-        }
-
-        // vymazání polí po úspěšném insertu
-        document.getElementById(prefix + "Subject").value = "";
-        document.getElementById(prefix + "Desc").value = "";
-        document.getElementById(prefix + "Date").value = "";
-
-        fetchData(); // aktualizace seznamu
-    } catch (err) {
-        console.error("Chyba při volání Supabase:", err);
-    }
-}
-
-    async function vote(type, id, isUpvote) {
-        const voteKey = type + "_" + id;
-        if (localStorage.getItem(voteKey)) {
-            alert("Už jsi hlasoval.");
-            return;
-        }
-
-        const item = pendingData[type].find(x => x.id === id);
-        if (!item) return;
-
-        const newUp = item.up + (isUpvote ? 1 : 0);
-        const newDown = item.down + (!isUpvote ? 1 : 0);
-
-        await supabase
-            .from(type + "_pending")
-            .update({ up: newUp, down: newDown })
-            .eq('id', id);
-
-        localStorage.setItem(voteKey, "1");
-
-        if (newUp - newDown >= 2) {
-            // Přesun do potvrzené tabulky
-            await supabase
-                .from(type + "s")
-                .insert([{ subject: item.subject, desc: item.desc, date: item.date }]);
-            await supabase
-                .from(type + "_pending")
-                .delete()
-                .eq('id', id);
-        }
-    }
-
-    function renderItems(type, data, targetId) {
-        const list = document.getElementById(targetId);
-        list.innerHTML = "";
-        data.sort((a,b) => a.date.localeCompare(b.date));
-        data.forEach(item => {
-            const div = document.createElement("div");
-            div.className = "item";
-            div.innerHTML = `<div>
-                                <b>${item.subject}</b> – ${item.desc}<br>
-                                <small>${item.date}</small>
-                             </div>`;
-            list.appendChild(div);
-        });
-    }
-
-    function renderPending(type, data, targetId) {
-        const list = document.getElementById(targetId);
-        list.innerHTML = "";
-        pendingData[type] = data;
-        data.forEach(item => {
-            const div = document.createElement("div");
-            div.className = "item";
-            div.innerHTML = `<div>
-                                <b>${item.subject}</b> – ${item.desc}<br>
-                                <small>${item.date}</small>
-                             </div>
-                             <div class="vote-box">
-                                <div class="vote-btn like" onclick="vote('${type}','${item.id}',true)">👍</div>
-                                <div class="vote-btn dislike" onclick="vote('${type}','${item.id}',false)">👎</div>
-                             </div>`;
-            list.appendChild(div);
-        });
-    }
-
-    // Funkce pro načtení dat
-    async function fetchData() {
-        // Domácí úkoly
-        let { data: tasksData } = await supabase.from('tasks').select('*');
-        renderItems('task', tasksData || [], 'tasks');
-
-        let { data: tasksPendingData } = await supabase.from('tasks_pending').select('*');
-        renderPending('task', tasksPendingData || [], 'tasksPending');
-
-        // Testy
-        let { data: testsData } = await supabase.from('tests').select('*');
-        renderItems('test', testsData || [], 'tests');
-
-        let { data: testsPendingData } = await supabase.from('tests_pending').select('*');
-        renderPending('test', testsPendingData || [], 'testsPending');
-    }
-
-    fetchData();
-
-    // Přidání listenerů k tlačítkům
-    document.getElementById("btnTask").addEventListener("click", () => addItem('task'));
-    document.getElementById("btnTest").addEventListener("click", () => addItem('test'));
-
-    
-    // Realtime subscribes pro live update
-    supabase.from('tasks').on('INSERT', fetchData).subscribe();
-    supabase.from('tasks_pending').on('INSERT', fetchData).subscribe();
-    supabase.from('tasks_pending').on('UPDATE', fetchData).subscribe();
-    supabase.from('tasks_pending').on('DELETE', fetchData).subscribe();
-
-    supabase.from('tests').on('INSERT', fetchData).subscribe();
-    supabase.from('tests_pending').on('INSERT', fetchData).subscribe();
-    supabase.from('tests_pending').on('UPDATE', fetchData).subscribe();
-    supabase.from('tests_pending').on('DELETE', fetchData).subscribe();
-    
-</script>
 <div class="column">
     <h2>Domácí úkoly</h2>
     <div id="tasks"></div>
@@ -267,5 +91,132 @@ async function addItem(type) {
     <h3>Nepotvrzené návrhy</h3>
     <div id="testsPending"></div>
 </div>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js";
+
+const supabaseUrl = "https://YOUR_PROJECT_ID.supabase.co";
+const supabaseKey = "YOUR_ANON_KEY";
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+let pendingData = { task: [], test: [] };
+
+// Funkce přidání úkolu/testu
+async function addItem(type){
+    const prefix = type==='task'?'task':'test';
+    const subject = document.getElementById(prefix+'Subject').value.trim();
+    const desc = document.getElementById(prefix+'Desc').value.trim();
+    const date = document.getElementById(prefix+'Date').value;
+    if(!subject||!desc||!date){ alert("Vyplň všechna pole!"); return; }
+
+    const { data, error } = await supabase.from(type+"_pending")
+        .insert([{subject, desc, date, up:0, down:0}]);
+
+    if(error){ console.error(error); alert("Chyba při přidávání, zkontroluj konzoli."); return; }
+
+    document.getElementById(prefix+'Subject').value='';
+    document.getElementById(prefix+'Desc').value='';
+    document.getElementById(prefix+'Date').value='';
+
+    fetchData();
+}
+
+// Funkce hlasování
+async function vote(type, id, isUp){
+    const voteKey = type+"_"+id;
+    if(localStorage.getItem(voteKey)){ alert("Už jsi hlasoval."); return; }
+
+    const item = pendingData[type].find(x=>x.id===id);
+    if(!item) return;
+
+    const { error } = await supabase.from(type+"_pending")
+        .update({ up: item.up + (isUp?1:0), down: item.down + (!isUp?1:0) })
+        .eq('id', id);
+
+    if(error){ console.error(error); return; }
+
+    localStorage.setItem(voteKey,'1');
+
+    // přesunout pokud down >=2
+    const newUp = item.up + (isUp?1:0);
+    const newDown = item.down + (!isUp?1:0);
+    if(newDown>=2){
+        const { data, error } = await supabase.from(type+"s").insert([{subject:item.subject,desc:item.desc,date:item.date}]);
+        if(error) console.error(error);
+        await supabase.from(type+"_pending").delete().eq('id',id);
+    }
+
+    fetchData();
+}
+
+// vykreslení seznamů
+function renderItems(type, items, targetId){
+    const list = document.getElementById(targetId);
+    list.innerHTML="";
+    items.sort((a,b)=>a.date.localeCompare(b.date));
+    items.forEach(item=>{
+        const div = document.createElement('div');
+        div.className='item';
+        div.innerHTML=`<div><b>${item.subject}</b> – ${item.desc}<br><small>${item.date}</small></div>`;
+        list.appendChild(div);
+    });
+}
+
+function renderPending(type, items, targetId){
+    const list = document.getElementById(targetId);
+    list.innerHTML="";
+    pendingData[type]=items;
+    items.forEach(item=>{
+        const div = document.createElement('div');
+        div.className='item';
+        div.innerHTML=`
+            <div><b>${item.subject}</b> – ${item.desc}<br><small>${item.date}</small></div>
+            <div class="vote-box">
+                <div class="vote-btn like" onclick="vote('${type}','${item.id}',true)">👍</div>
+                <div class="vote-btn dislike" onclick="vote('${type}','${item.id}',false)">👎</div>
+            </div>
+        `;
+        list.appendChild(div);
+    });
+}
+
+// načtení dat z Supabase
+async function fetchData(){
+    let { data: tasks, error } = await supabase.from('tasks').select('*');
+    if(error) console.error(error);
+    renderItems('task',tasks||[],'tasks');
+
+    let { data: tasksPending, error: e2 } = await supabase.from('tasks_pending').select('*');
+    if(e2) console.error(e2);
+    renderPending('task',tasksPending||[],'tasksPending');
+
+    let { data: tests, error: e3 } = await supabase.from('tests').select('*');
+    if(e3) console.error(e3);
+    renderItems('test',tests||[],'tests');
+
+    let { data: testsPending, error: e4 } = await supabase.from('tests_pending').select('*');
+    if(e4) console.error(e4);
+    renderPending('test',testsPending||[],'testsPending');
+}
+
+// připojení tlačítek
+document.getElementById("btnTask").addEventListener("click",()=>addItem('task'));
+document.getElementById("btnTest").addEventListener("click",()=>addItem('test'));
+
+// Realtime aktualizace
+supabase.from('tasks').on('INSERT',fetchData).subscribe();
+supabase.from('tasks_pending').on('INSERT',fetchData).subscribe();
+supabase.from('tasks_pending').on('UPDATE',fetchData).subscribe();
+supabase.from('tasks_pending').on('DELETE',fetchData).subscribe();
+
+supabase.from('tests').on('INSERT',fetchData).subscribe();
+supabase.from('tests_pending').on('INSERT',fetchData).subscribe();
+supabase.from('tests_pending').on('UPDATE',fetchData).subscribe();
+supabase.from('tests_pending').on('DELETE',fetchData).subscribe();
+
+// inicialní načtení
+fetchData();
+
+</script>
 </body>
 </html>
