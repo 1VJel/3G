@@ -133,22 +133,30 @@
 
     let pendingData = { task: [], test: [] };
 
-    async function addItem(type) {
-        const prefix = type === "task" ? "task" : "test";
-        const subject = document.getElementById(prefix + "Subject").value.trim();
-        const desc = document.getElementById(prefix + "Desc").value.trim();
-        const date = document.getElementById(prefix + "Date").value;
+async function addItem(type) {
+    const prefix = type === "task" ? "task" : "test";
+    const subject = document.getElementById(prefix + "Subject").value.trim();
+    const desc = document.getElementById(prefix + "Desc").value.trim();
+    const date = document.getElementById(prefix + "Date").value;
 
-        if (!subject || !desc || !date) return alert("Vyplň všechna pole!");
+    if (!subject || !desc || !date) return alert("Vyplň všechna pole!");
 
-        await supabase
-            .from(type + "_pending")
-            .insert([{ subject, desc, date, up:0, down:0 }]);
+    const { data, error } = await supabase
+        .from(type + "_pending")
+        .insert([{ subject, desc, date, up: 0, down: 0 }]);
 
-        document.getElementById(prefix + "Subject").value = "";
-        document.getElementById(prefix + "Desc").value = "";
-        document.getElementById(prefix + "Date").value = "";
+    if (error) {
+        console.error("Chyba při přidávání:", error);
+        alert("Nepodařilo se přidat položku. Zkontroluj konzoli.");
+        return;
     }
+
+    document.getElementById(prefix + "Subject").value = "";
+    document.getElementById(prefix + "Desc").value = "";
+    document.getElementById(prefix + "Date").value = "";
+
+    fetchData(); // aktualizace seznamu
+}
 
     async function vote(type, id, isUpvote) {
         const voteKey = type + "_" + id;
