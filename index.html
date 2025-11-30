@@ -94,35 +94,6 @@
 </style>
 </head>
 <body>
-
-<div class="column">
-    <h2>Domácí úkoly</h2>
-    <div id="tasks"></div>
-
-    <h3>Přidat úkol</h3>
-    <input id="taskSubject" placeholder="Předmět (1–2 písmena)">
-    <input id="taskDesc" placeholder="Popis úkolu">
-    <input id="taskDate" type="date">
-    <button onclick="addItem('task')">Odeslat</button>
-
-    <h3>Nepotvrzené návrhy</h3>
-    <div id="tasksPending"></div>
-</div>
-
-<div class="column">
-    <h2>Testy</h2>
-    <div id="tests"></div>
-
-    <h3>Přidat test</h3>
-    <input id="testSubject" placeholder="Předmět (1–2 písmena)">
-    <input id="testDesc" placeholder="Popis testu">
-    <input id="testDate" type="date">
-    <button onclick="addItem('test')">Odeslat</button>
-
-    <h3>Nepotvrzené návrhy</h3>
-    <div id="testsPending"></div>
-</div>
-
 <!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
 <script>
@@ -255,5 +226,32 @@ async function addItem(type) {
     supabase.from('tests_pending').on('DELETE', fetchData).subscribe();
 
 </script>
+<div class="column">
+    <h2>Domácí úkoly</h2>
+    <div id="tasks"></div>
+
+    <h3>Přidat úkol</h3>
+    <input id="taskSubject" placeholder="Předmět (1–2 písmena)">
+    <input id="taskDesc" placeholder="Popis úkolu">
+    <input id="taskDate" type="date">
+    <button onclick="addItem('task')">Odeslat</button>
+
+    <h3>Nepotvrzené návrhy</h3>
+    <div id="tasksPending"></div>
+</div>
+
+<div class="column">
+    <h2>Testy</h2>
+    <div id="tests"></div>
+
+    <h3>Přidat test</h3>
+    <input id="testSubject" placeholder="Předmět (1–2 písmena)">
+    <input id="testDesc" placeholder="Popis testu">
+    <input id="testDate" type="date">
+    <button onclick="addItem('test')">Odeslat</button>
+
+    <h3>Nepotvrzené návrhy</h3>
+    <div id="testsPending"></div>
+</div>
 </body>
 </html>
